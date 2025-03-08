@@ -11,6 +11,7 @@ const ProfilePage = () => {
   const [gender, setGender] = useState(authUser.gender || "");
   const [genderPreference, setGenderPreference] = useState(authUser.genderPreference || []);
   const [image, setImage] = useState(authUser.image || null);
+  const [interests, setInterests] = useState(authUser.interests || []);
 
   const fileInputRef = useRef(null);
 
@@ -18,7 +19,7 @@ const ProfilePage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    updateProfile({name, bio, age, gender, genderPreference, image});
+    updateProfile({name, bio, age, gender, genderPreference, image, interests});
   }
 
   const handleImageChange = (e) => {
@@ -32,8 +33,6 @@ const ProfilePage = () => {
       reader.readAsDataURL(file);
     }
   };
-
-  console.log(image);
 
   return (
     <div className='min-h-screen bg-gray-50 flex flex-col'>
@@ -150,6 +149,53 @@ const ProfilePage = () => {
                       rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-pink-300 focus:border-pink-300 
                       sm:text-sm'
                   />
+                </div>
+              </div>
+
+              {/* Interests */}
+              <div>
+                <label htmlFor='interests' className='block text-sm font-medium text-gray-700'>
+                  Interests
+                </label>
+                <div className='mt-1'>
+                  <ul className='space-y-2'>
+                    {interests.map((interest, index) => (
+                      <li key={index} className='flex items-center justify-between'>
+                        <span>{interest}</span>
+                        <button
+                          type='button'
+                          onClick={() => setInterests(interests.filter((_, i) => i !== index))}
+                          className='text-red-500 hover:text-red-700'
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className='mt-4 flex'>
+                    <input
+                      id='newInterest'
+                      name='newInterest'
+                      type='text'
+                      placeholder='Add new interest'
+                      className='appearance-none block w-full px-3 py-2 border border-gray-300
+                        rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-pink-300 focus:border-pink-300 
+                        sm:text-sm'
+                    />
+                    <button
+                      type='button'
+                      onClick={() => {
+                        const newInterest = document.getElementById('newInterest').value;
+                        if (newInterest) {
+                          setInterests([...interests, newInterest]);
+                          document.getElementById('newInterest').value = '';
+                        }
+                      }}
+                      className='ml-2 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-400 hover:bg-pink-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500'
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
               </div>
 
