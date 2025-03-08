@@ -9,7 +9,7 @@ const signToken = (id) => {
 };
 
 export const signup = async(req,res) => {
-  const { name, email, password, age, gender, genderPreference } = req.body;
+  const { name, email, password, age, gender, genderPreference, interests } = req.body;
   try {
     if (!name || !email || !password || !age || !gender || !genderPreference) {
       return res.status(400).json({
@@ -39,6 +39,7 @@ export const signup = async(req,res) => {
       age,
       gender,
       genderPreference,
+      interests: interests || []
     });
 
     const token = signToken(newUser._id);

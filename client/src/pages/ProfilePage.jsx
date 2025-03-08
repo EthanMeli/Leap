@@ -158,40 +158,44 @@ const ProfilePage = () => {
                   Interests
                 </label>
                 <div className='mt-1'>
-                  <ul className='space-y-2'>
-                    {interests.map((interest, index) => (
-                      <li key={index} className='flex items-center justify-between'>
-                        <span>{interest}</span>
+                  <div className='flex flex-wrap gap-2 mb-4'>
+                    {interests.map((interest) => (
+                      <span
+                        key={interest}
+                        className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                          bg-pink-100 text-pink-800'
+                      >
+                        {interest}
                         <button
                           type='button'
-                          onClick={() => setInterests(interests.filter((_, i) => i !== index))}
-                          className='text-red-500 hover:text-red-700'
+                          onClick={() => setInterests(interests.filter(i => i !== interest))}
+                          className='ml-1 text-pink-600 hover:text-pink-800'
                         >
-                          Remove
+                          ×
                         </button>
-                      </li>
+                      </span>
                     ))}
-                  </ul>
-                  <div className='mt-4 flex'>
+                  </div>
+                  <div className='flex space-x-2'>
                     <input
                       id='newInterest'
                       name='newInterest'
                       type='text'
                       placeholder='Add new interest'
-                      className='appearance-none block w-full px-3 py-2 border border-gray-300
-                        rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-pink-300 focus:border-pink-300 
-                        sm:text-sm'
+                      className='flex-1 appearance-none px-3 py-2 border border-gray-300 rounded-md shadow-sm 
+                        placeholder-gray-400 focus:outline-none focus:ring-pink-300 focus:border-pink-300 sm:text-sm'
                     />
                     <button
                       type='button'
                       onClick={() => {
-                        const newInterest = document.getElementById('newInterest').value;
-                        if (newInterest) {
+                        const newInterest = document.getElementById('newInterest').value.trim();
+                        if (newInterest && newInterest.length >= 2 && !interests.includes(newInterest)) {
                           setInterests([...interests, newInterest]);
                           document.getElementById('newInterest').value = '';
                         }
                       }}
-                      className='ml-2 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-400 hover:bg-pink-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500'
+                      className='px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium 
+                        text-white bg-pink-400 hover:bg-pink-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-300'
                     >
                       Add
                     </button>

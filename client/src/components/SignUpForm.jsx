@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
+import toast from 'react-hot-toast';
 
 const SignUpForm = () => {
   const [name, setName] = useState("");
@@ -8,15 +9,81 @@ const SignUpForm = () => {
   const [gender, setGender] = useState("");
   const [age, setAge] = useState("");
   const [genderPreference, setGenderPreference] = useState("");
+  const [interests, setInterests] = useState([]);
+  const [customInterest, setCustomInterest] = useState("");
+
+  const recommendedInterests = [
+    "Travel",
+    "Music",
+    "Movies",
+    "Fitness",
+    "Food",
+    "Photography",
+    "Art",
+    "Reading",
+    "Gaming",
+    "Sports"
+  ];
   
   const { signup, loading } = useAuthStore();
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (interests.length === 0) {
+      toast.error("Please select at least one interest");
+      return;
+    }
+    signup({
+      name, 
+      email, 
+      password, 
+      gender, 
+      age: parseInt(age), 
+      genderPreference,
+      interests
+    });
+  };
+
+  const handleInterestChange = (interest) => {
+    if (interests.includes(interest)) {
+      setInterests(interests.filter(i => i !== interest));
+    } else {
+      setInterests([...interests, interest]);
+    }
+  };
+
+  const addCustomInterest = (e) => {
+    e?.preventDefault(); // Handle both button click and form submit
+    if (!customInterest.trim()) {
+      return;
+    }
+    
+    const formatted = customInterest.trim();
+    
+    if (interests.includes(formatted)) {
+      toast.error("This interest already exists!");
+      return;
+    }
+    
+    if (formatted.length < 2) {
+      toast.error("Interest must be at least 2 characters long");
+      return;
+    }
+    
+    setInterests(prev => [...prev, formatted]);
+    setCustomInterest("");
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCustomInterest(e);
+    }
+  };
+
   return (
     <form className='space-y-6'
-      onSubmit={(e) => {
-        e.preventDefault()
-        signup({name,email,password,gender,age,genderPreference})
-      }}
+      onSubmit={handleSubmit}
     >
 
       {/* NAME */}
@@ -185,6 +252,74 @@ const SignUpForm = () => {
             </label>
           </div>
         </div>
+      </div>
+
+      {/* INTERESTS SECTION */}
+      <div>
+        <label className='block text-sm font-medium text-gray-700 mb-2'>
+          Interests
+        </label>
+        
+        {/* Recommended Interests */}
+        <div className='grid grid-cols-2 gap-2 mb-4'>
+          {recommendedInterests.map(interest => (
+            <label key={interest} className='flex items-center space-x-2'>
+              <input
+                type='checkbox'
+                checked={interests.includes(interest)}
+                onChange={() => handleInterestChange(interest)}
+                className='rounded border-gray-300 text-pink-400 focus:ring-pink-300'
+              />
+              <span className='text-sm text-gray-700'>{interest}</span>
+            </label>
+          ))}
+        </div>
+
+        {/* Custom Interest Input */}
+        <div className='flex space-x-2'>
+          <input
+            type='text'
+            value={customInterest}
+            onChange={(e) => setCustomInterest(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder='Add custom interest'
+            className='flex-1 appearance-none px-3 py-2 border border-gray-300 rounded-md shadow-sm 
+              placeholder-gray-400 focus:outline-none focus:ring-pink-300 focus:border-pink-300 sm:text-sm'
+          />
+          <button
+            type='button'
+            onClick={addCustomInterest}
+            className='px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium 
+              text-white bg-pink-400 hover:bg-pink-500 focus:outline-none focus:ring-2 
+              focus:ring-offset-2 focus:ring-pink-300'
+          >
+            Add
+          </button>
+        </div>
+
+        {/* Selected Interests */}
+        {interests.length > 0 && (
+          <div className='mt-2'>
+            <div className='flex flex-wrap gap-2'>
+              {interests.map(interest => (
+                <span
+                  key={interest}
+                  className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                    bg-pink-100 text-pink-800'
+                >
+                  {interest}
+                  <button
+                    type='button'
+                    onClick={() => handleInterestChange(interest)}
+                    className='ml-1 text-pink-600 hover:text-pink-800'
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div>
