@@ -39,7 +39,7 @@ export const Header = () => {
                   className='flex items-center space-x-2 focus:outline-none'
                 >
                   <img 
-                    src={authUser.image || "/avatar.png"}
+                    src={authUser.image?.[0] || "/avatar.png"}
                     className='h-10 w-10 object-cover rounded-full border-2 border-white hover:cursor-pointer'
                     alt='User image'
                   />

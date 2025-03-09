@@ -1,7 +1,19 @@
-import { useRef, useState } from "react";
+import { useRef, useState, createRef, useEffect } from "react";
 import { Header } from "../components/Header";
 import { useAuthStore } from "../store/useAuthStore";
 import { useUserStore } from "../store/useUserStore";
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import ImageGridItem from '../components/ImageGridItem';
+
+const useIsTouchDevice = () => {
+  const [isTouch, setIsTouch] = useState(false);
+
+  useEffect(() => {
+    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  return isTouch;
+};
 
 const ProfilePage = () => {
   const { authUser } = useAuthStore();
@@ -10,28 +22,65 @@ const ProfilePage = () => {
   const [age, setAge] = useState(authUser.age || "");
   const [gender, setGender] = useState(authUser.gender || "");
   const [genderPreference, setGenderPreference] = useState(authUser.genderPreference || []);
-  const [image, setImage] = useState(authUser.image || null);
   const [interests, setInterests] = useState(authUser.interests || []);
-
-  const fileInputRef = useRef(null);
+  const [images, setImages] = useState(() => {
+    // Initialize with exactly 9 slots, using existing images or empty strings
+    const initialImages = Array(9).fill("");
+    if (authUser.image) {
+      authUser.image.forEach((img, i) => {
+        if (i < 9) initialImages[i] = img;
+      });
+    }
+    return initialImages;
+  });
+  const fileInputRefs = useRef(Array(9).fill(null).map(() => createRef())); // Create 9 refs
 
   const {loading, updateProfile} = useUserStore();
+  const isTouch = useIsTouchDevice();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    updateProfile({name, bio, age, gender, genderPreference, image, interests});
+    updateProfile({
+      name, 
+      bio, 
+      age, 
+      gender, 
+      genderPreference, 
+      image: images.filter(img => img !== ""), // Only send non-empty images
+      interests
+    });
   }
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e, index) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result);
+        const newImages = [...images];
+        newImages[index] = reader.result;
+        setImages(newImages);
       };
-
       reader.readAsDataURL(file);
     }
+  };
+
+  const removeImage = (index) => {
+    const newImages = [...images];
+    newImages[index] = "";
+    setImages(newImages);
+  };
+
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    
+    const newImages = Array.from(images);
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+    
+    // Swap the images instead of splicing
+    [newImages[sourceIndex], newImages[destIndex]] = [newImages[destIndex], newImages[sourceIndex]];
+    
+    setImages(newImages);
   };
 
   return (
@@ -39,12 +88,74 @@ const ProfilePage = () => {
       <Header />
 
       <div className='flex-grow flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8'>
-        <div className='sm:mx-auto sm:w-full sm:max-w-md'>
+        <div className='sm:mx-auto sm:w-full sm:max-w-4xl'> {/* Increased max width */}
           <h2 className='mt-6 text-center text-3xl font-extrabold text-gray-900'>Your Profile</h2>
-        </div>
 
-        <div className='mt-8 sm:mx-auto sm:w-full sm:max-w-md'>
-          <div className='bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-200'>
+          {/* IMAGES GRID - Moved to top */}
+          <div className='mt-8 bg-white py-4 sm:py-6 px-4 shadow sm:rounded-lg sm:px-6 border border-gray-200'>
+            <label className='block text-sm font-medium text-gray-700 mb-2 sm:mb-4'>
+              Profile Images (Maximum 9)
+            </label>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable 
+                droppableId="image-grid" 
+                direction="horizontal"
+                isDropDisabled={false}
+              >
+                {(provided, snapshot) => (
+                  <div 
+                    className={`grid grid-cols-3 gap-2 mb-4 md:max-w-[360px] md:mx-auto ${
+                      snapshot.isDraggingOver ? 'bg-gray-50 rounded-lg' : ''
+                    }`}
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    style={{
+                      // Ensure grid maintains structure during drag
+                      minHeight: snapshot.isDraggingOver ? '200px' : 'auto',
+                    }}
+                  >
+                    {images.map((image, index) => (
+                      <Draggable 
+                        key={index.toString()} 
+                        draggableId={index.toString()} 
+                        index={index}
+                        isDragDisabled={!image}
+                      >
+                        {(provided, snapshot) => (
+                          <ImageGridItem
+                            ref={provided.innerRef}
+                            image={image}
+                            index={index}
+                            isTouch={isTouch}
+                            onImageClick={() => fileInputRefs.current[index].current.click()}
+                            onRemove={() => removeImage(index)}
+                            provided={provided}
+                            isDragging={snapshot.isDragging}
+                          />
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+            <div className='hidden'>
+              {images.map((_, index) => (
+                <input
+                  key={index}
+                  type='file'
+                  accept='image/*'
+                  onChange={(e) => handleImageChange(e, index)}
+                  ref={fileInputRefs.current[index]}
+                  className='hidden'
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Rest of the form in a separate card */}
+          <div className='mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-200'>
             <form onSubmit={handleSubmit} className='space-y-6'>
 
               {/* NAME */}
@@ -202,39 +313,6 @@ const ProfilePage = () => {
                   </div>
                 </div>
               </div>
-
-              {/* IMAGE */}
-              <div>
-                <label htmlFor='image' className='block text-sm font-medium text-gray-700'>
-                  Cover Image
-                </label>
-                <div className='mt-1 flex items-center'>
-                  <button
-                    id='image'
-                    type='button'
-                    onClick={() => fileInputRef.current.click()}
-                    className='inline-flex items-center px-4 py-2 border border-gray-300
-                      rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 
-                      focus:ring-offset-2 focus:ring-pink-500'
-                  >
-                    Upload Image
-                  </button>
-                  <input 
-                    ref={fileInputRef}
-                    type='file'
-                    accept='image/*'
-                    onChange={handleImageChange}
-                    className='hidden'
-                  />
-                </div>
-              </div>
-
-              {image && (
-                <div className='mt-4'>
-                  <img src={image} alt="User Image" className='w-48 h-full object-cover rounded-md' />
-                  
-                </div>
-              )}
 
               <button type='submit'
                 className='w-full flex justify-center py-2 px-4 border-transparent rounded-md shadow-sm
