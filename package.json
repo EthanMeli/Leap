@@ -19,6 +19,7 @@
   "homepage": "https://github.com/EthanMeli/Initiate#readme",
   "description": "",
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.8",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.5.1",
     "cookie-parser": "^1.4.7",

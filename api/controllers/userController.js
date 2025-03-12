@@ -51,19 +51,35 @@ export const updateProfile = async (req, res) => {
       }
     }
 
-    // Update user data in Supabase
+    // Update user data in Supabase with transformed data
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .update(updatedData)
+      .update({
+        name: otherData.name,
+        age: otherData.age,
+        gender: otherData.gender?.toLowerCase(),
+        gender_preference: otherData.genderPreference?.toLowerCase(),
+        bio: otherData.bio,
+        interests: otherData.interests,
+        image: updatedData.image,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', req.user.id)
       .select()
       .single();
 
     if (userError) throw userError;
 
+    // Transform the response back to camelCase for frontend
+    const transformedUser = {
+      ...userData,
+      genderPreference: userData.gender_preference,
+    };
+    delete transformedUser.gender_preference;
+
     res.status(200).json({
       success: true,
-      user: userData
+      user: transformedUser
     });
 
   } catch (error) {

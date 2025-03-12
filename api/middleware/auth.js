@@ -1,45 +1,46 @@
-import jwt from "jsonwebtoken";
-import User from "../models/User.js";
+import { supabase } from "../config/supabase.js";
 
 export const protectRoute = async (req, res, next) => {
-
   try {
-    const token = req.cookies.jwt;
+    const token = req.cookies["sb-token"];
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Not authorized - No token provided",
+        message: "Not authorized - No token provided"
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Set auth header for this request
+    supabase.auth.setSession(token);
+    
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!decoded) {
+    if (authError || !user) {
       return res.status(401).json({
         success: false,
-        message: "Not authorized - Invalid token",
+        message: "Not authorized - Invalid token"
       });
     }
 
-    const currentUser = await User.findById(decoded.id);
+    // Get user profile
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
 
-    req.user = currentUser;
+    if (userError) throw userError;
 
+    req.user = userData;
     next();
+
   } catch (error) {
     console.log("Error in auth middleware: ", error);
-
-    if (error instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({
-        success: false,
-        message: "Not authorized - Invalid token",
-      });
-    } else {
-      return res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
-    }
+    res.status(401).json({
+      success: false,
+      message: "Not authorized"
+    });
   }
 };

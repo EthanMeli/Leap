@@ -10,7 +10,6 @@ import userRoutes from "./routes/userRoutes.js";
 import matchRoutes from "./routes/matchRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 
-import { connectDB } from "./config/db.js";
 import { initializeSocket } from "./socket/socket.server.js";
 
 dotenv.config();
@@ -21,7 +20,7 @@ const PORT = process.env.PORT || 5000;
 
 initializeSocket(httpServer);
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));  // Increased limit for image uploads
 app.use(cookieParser());
 app.use(cors({
   origin: process.env.CLIENT_URL,
@@ -35,5 +34,4 @@ app.use("/api/messages", messageRoutes);
 
 httpServer.listen(PORT, () => {
   console.log("Server started at port: " + PORT);
-  connectDB();
 });
