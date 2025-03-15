@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon api/server.js"
+    "dev": "nodemon api/server.js",
+    "seed": "node api/seeds/user.js"
   },
   "repository": {
     "type": "git",

@@ -57,6 +57,13 @@ create policy "Enable insert for authenticated users"
 on public.users for insert
 with check (auth.uid() = id);
 
+-- Add view policy for potential matches
+create policy "Users can view potential matches"
+on public.users for select
+using (
+  true  -- Temporarily allow all reads for debugging
+);
+
 -- Matches policies
 create policy "Users can view own matches"
 on public.matches for select
