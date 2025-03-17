@@ -1,5 +1,6 @@
 -- Enable necessary extensions
 create extension if not exists "uuid-ossp";
+create extension if not exists postgis;
 
 -- Users table
 create table public.users (
@@ -12,6 +13,9 @@ create table public.users (
     bio text,
     image text[] default array[]::text[],
     interests text[] default array[]::text[],
+    latitude numeric(10,8),
+    longitude numeric(11,8),
+    location_name text,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -57,11 +61,11 @@ create policy "Enable insert for authenticated users"
 on public.users for insert
 with check (auth.uid() = id);
 
--- Add view policy for potential matches
+-- Update the potential matches policy to be more permissive
 create policy "Users can view potential matches"
 on public.users for select
 using (
-  true  -- Temporarily allow all reads for debugging
+  auth.role() = 'authenticated'  -- Allow any authenticated user to view other profiles
 );
 
 -- Matches policies

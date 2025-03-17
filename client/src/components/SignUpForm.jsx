@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import toast from 'react-hot-toast';
 
@@ -11,6 +11,9 @@ const SignUpForm = () => {
   const [genderPreference, setGenderPreference] = useState("");
   const [interests, setInterests] = useState([]);
   const [customInterest, setCustomInterest] = useState("");
+  const [location, setLocation] = useState(null);
+  const [locationName, setLocationName] = useState("");
+  const [locationError, setLocationError] = useState("");
 
   const recommendedInterests = [
     "Travel",
@@ -27,8 +30,41 @@ const SignUpForm = () => {
   
   const { signup, loading } = useAuthStore();
 
+  useEffect(() => {
+    // Request location on component mount
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocation({ latitude, longitude });
+          
+          // Get location name using reverse geocoding
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+            );
+            const data = await response.json();
+            setLocationName(data.display_name);
+          } catch (error) {
+            console.error("Error getting location name:", error);
+          }
+        },
+        (error) => {
+          setLocationError("Please enable location services to continue");
+          console.error("Error getting location:", error);
+        }
+      );
+    } else {
+      setLocationError("Geolocation is not supported by your browser");
+    }
+  }, []);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!location) {
+      toast.error("Location is required");
+      return;
+    }
     if (interests.length === 0) {
       toast.error("Please select at least one interest");
       return;
@@ -40,7 +76,10 @@ const SignUpForm = () => {
       gender, 
       age: parseInt(age), 
       genderPreference,
-      interests
+      interests,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      locationName
     });
   };
 
@@ -320,6 +359,24 @@ const SignUpForm = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Location Field */}
+      <div>
+        <label className='block text-sm font-medium text-gray-700'>
+          Location
+        </label>
+        <div className='mt-1'>
+          {locationError ? (
+            <div className='text-red-500 text-sm'>{locationError}</div>
+          ) : location ? (
+            <div className='text-sm text-gray-600'>
+              {locationName || 'Location detected'}
+            </div>
+          ) : (
+            <div className='text-sm text-gray-600'>Detecting location...</div>
+          )}
+        </div>
       </div>
 
       <div>

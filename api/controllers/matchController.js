@@ -220,7 +220,7 @@ export const getUserProfiles = async (req, res) => {
       gender: user.gender,
       genderPreference: user.gender_preference,
       bio: user.bio,
-      image: user.image?.[0] || null
+      image: user.image || [] // Return full image array instead of just first image
     })) || [];
 
     res.status(200).json({

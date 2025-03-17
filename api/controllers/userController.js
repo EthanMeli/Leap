@@ -2,8 +2,16 @@ import { supabase } from "../config/supabase.js";
 
 export const updateProfile = async (req, res) => {
   try {
-    const { image, ...otherData } = req.body;
-    let updatedData = otherData;
+    const { image, latitude, longitude, locationName, genderPreference, ...otherData } = req.body;
+    let updatedData = { ...otherData };
+
+    // Validate gender preference
+    if (!genderPreference) {
+      return res.status(400).json({
+        success: false,
+        message: "Gender preference is required"
+      });
+    }
 
     if (image && Array.isArray(image)) {
       try {
@@ -57,10 +65,13 @@ export const updateProfile = async (req, res) => {
         name: otherData.name,
         age: otherData.age,
         gender: otherData.gender?.toLowerCase(),
-        gender_preference: otherData.genderPreference?.toLowerCase(),
+        gender_preference: genderPreference.toLowerCase(),
         bio: otherData.bio,
         interests: otherData.interests,
         image: updatedData.image,
+        latitude,
+        longitude,
+        location_name: locationName,
         updated_at: new Date().toISOString()
       })
       .eq('id', req.user.id)
