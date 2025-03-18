@@ -6,6 +6,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import ImageGridItem from '../components/ImageGridItem';
 import { MapPin } from 'lucide-react';
 import toast from "react-hot-toast";
+import { formatLocation } from '../utils/formatLocation';
 
 const useIsTouchDevice = () => {
   const [isTouch, setIsTouch] = useState(false);
@@ -17,31 +18,49 @@ const useIsTouchDevice = () => {
   return isTouch;
 };
 
-const formatLocationName = (displayName) => {
-  if (!displayName) return "";
-  try {
-    const parts = displayName.split(", ");
-    // Find the city and state in the address parts
-    const cityIndex = parts.findIndex(part => 
-      !part.match(/^\d/) && // Not starting with number
-      !part.match(/^[A-Z]{2}$/) && // Not a 2-letter country code
-      !part.includes("County") // Not a county name
-    );
-    const stateIndex = parts.findIndex(part => 
-      part.match(/^[A-Z]{2}$/) || // US state code
-      part.includes("County") || // County name
-      part.match(/^[A-Z][a-z]+( [A-Z][a-z]+)*$/) // State name
-    );
-    
-    if (cityIndex !== -1 && stateIndex !== -1) {
-      return `${parts[cityIndex]}, ${parts[stateIndex]}`;
-    }
-    return parts[0]; // Fallback to first part
-  } catch (error) {
-    console.error("Error formatting location:", error);
-    return displayName;
-  }
-};
+
+const RadioCard = ({ id, value, checked, onChange, label, icon }) => (
+  <label 
+    htmlFor={id}
+    className={`
+      relative block w-full p-4 mb-2 cursor-pointer rounded-lg border-2 
+      transition-all duration-200 ease-in-out
+      ${checked 
+        ? 'border-pink-400 bg-pink-50 shadow-md transform -translate-y-1' 
+        : 'border-gray-200 bg-white hover:border-pink-200'
+      }
+    `}
+  >
+    <input
+      type="radio"
+      id={id}
+      name="gender-preference"
+      value={value}
+      checked={checked}
+      onChange={onChange}
+      className="hidden"
+    />
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        {icon && <span className="mr-3">{icon}</span>}
+        <span className={`font-medium ${checked ? 'text-pink-600' : 'text-gray-700'}`}>
+          {label}
+        </span>
+      </div>
+      <div className={`
+        w-5 h-5 border-2 rounded-full flex items-center justify-center
+        ${checked 
+          ? 'border-pink-400 bg-pink-400' 
+          : 'border-gray-300'
+        }
+      `}>
+        {checked && (
+          <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
+        )}
+      </div>
+    </div>
+  </label>
+);
 
 const ProfilePage = () => {
   const { authUser } = useAuthStore();
@@ -50,7 +69,7 @@ const ProfilePage = () => {
   const [age, setAge] = useState(authUser?.age || "");
   const [gender, setGender] = useState(authUser?.gender || "");
   const [genderPreference, setGenderPreference] = useState(
-    authUser?.gender_preference ? authUser.gender_preference.toLowerCase() : ""
+    authUser?.genderPreference || authUser?.gender_preference || ""
   );
   const [interests, setInterests] = useState(authUser?.interests || []);
   const [location, setLocation] = useState({
@@ -76,7 +95,7 @@ const ProfilePage = () => {
     setBio(authUser.bio || "");
     setAge(authUser.age || "");
     setGender(authUser.gender || "");
-    setGenderPreference(authUser.gender_preference?.toLowerCase() || "");
+    setGenderPreference(authUser.genderPreference || authUser.gender_preference || "");
     setInterests(authUser.interests || []);
     
     setLocation({
@@ -119,15 +138,13 @@ const ProfilePage = () => {
         async (position) => {
           const { latitude, longitude } = position.coords;
           
-          // Get location name
           try {
             const response = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
             );
             const data = await response.json();
-            const simplifiedLocation = formatLocationName(data.display_name);
+            const simplifiedLocation = formatLocation(data.display_name);
             
-            // Just update local state, don't save to DB
             setLocation({
               latitude,
               longitude,
@@ -152,12 +169,17 @@ const ProfilePage = () => {
       toast.error("Please select a gender preference");
       return;
     }
+    // Add a console.log to debug the data being sent
+    console.log("Submitting profile update with:", {
+      genderPreference,
+      // ...other fields
+    });
     updateProfile({
       name, 
       bio, 
       age, 
       gender, 
-      genderPreference, 
+      genderPreference, // Make sure we're using camelCase here
       image: images.filter(img => img !== ""), // Only send non-empty images
       interests,
       latitude: location.latitude,
@@ -338,26 +360,35 @@ const ProfilePage = () => {
               </div>
 
               {/* GENDER PREFERENCE */}
-              <div>
-                <span className='block text-sm font-medium text-gray-700'>
-                  Gender Preference
-                </span>
-                <div className='flex space-x-4'>
-                  {["male", "female", "both"].map((option) => (
-                    <label key={option} className='inline-flex items-center'>
-                      <input
-                        type='radio'
-                        name='gender-preference'
-                        className='form-radio text-pink-400'
-                        value={option}
-                        checked={genderPreference === option}
-                        onChange={(e) => setGenderPreference(e.target.value)}
-                      />
-                      <span className='ml-2'>
-                        {option.charAt(0).toUpperCase() + option.slice(1)}
-                      </span>
-                    </label>
-                  ))}
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Preferred Gender
+                </label>
+                <div className="space-y-2 max-w-md">
+                  <RadioCard
+                    id="prefer-male"
+                    value="male"
+                    checked={genderPreference === "male"}
+                    onChange={(e) => setGenderPreference(e.target.value)}
+                    label="Male"
+                    icon="👨"
+                  />
+                  <RadioCard
+                    id="prefer-female"
+                    value="female"
+                    checked={genderPreference === "female"}
+                    onChange={(e) => setGenderPreference(e.target.value)}
+                    label="Female"
+                    icon="👩"
+                  />
+                  <RadioCard
+                    id="prefer-both"
+                    value="both"
+                    checked={genderPreference === "both"}
+                    onChange={(e) => setGenderPreference(e.target.value)}
+                    label="Both"
+                    icon="👥"
+                  />
                 </div>
               </div>
 

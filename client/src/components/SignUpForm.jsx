@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import toast from 'react-hot-toast';
+import { formatLocation } from '../utils/formatLocation';
+import { MapPin } from 'lucide-react';
+import { RadioCard } from './ui/RadioCard'; // Add this import
+import { InterestCard } from './ui/InterestCard'; // Add this import
 
 const SignUpForm = () => {
   const [name, setName] = useState("");
@@ -30,32 +34,51 @@ const SignUpForm = () => {
   
   const { signup, loading } = useAuthStore();
 
-  useEffect(() => {
-    // Request location on component mount
+  const requestLocation = async () => {
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+          });
+        });
+        
+        const { latitude, longitude } = position.coords;
+        
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+          );
+          const data = await response.json();
+          const simplifiedLocation = formatLocation(data.display_name);
           setLocation({ latitude, longitude });
-          
-          // Get location name using reverse geocoding
-          try {
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
-            );
-            const data = await response.json();
-            setLocationName(data.display_name);
-          } catch (error) {
-            console.error("Error getting location name:", error);
-          }
-        },
-        (error) => {
-          setLocationError("Please enable location services to continue");
-          console.error("Error getting location:", error);
+          setLocationName(simplifiedLocation);
+          setLocationError(""); // Clear any existing error
+        } catch (error) {
+          console.error("Error getting location name:", error);
+          setLocationError("Error getting location name");
         }
-      );
+      } catch (error) {
+        console.error("Error getting location:", error);
+        if (error.code === 1) {
+          setLocationError("Location permission denied. Please enable location services.");
+        } else if (error.code === 2) {
+          setLocationError("Location not available. Please try again.");
+        } else {
+          setLocationError("Error getting location. Please try again.");
+        }
+      }
     } else {
       setLocationError("Geolocation is not supported by your browser");
+    }
+  };
+
+  useEffect(() => {
+    // Only auto-request on desktop devices
+    if (!/Mobi|Android/i.test(navigator.userAgent)) {
+      requestLocation();
     }
   }, []);
 
@@ -241,76 +264,52 @@ const SignUpForm = () => {
         </div>
       </div>
 
-      {/* GENDER PREFERENCE */}
-      <div>
-        <label className='block text-sm font-medium text-gray-700'>
+      {/* GENDER PREFERENCE - Updated to use RadioCard */}
+      <div className="space-y-4">
+        <label className="block text-sm font-medium text-gray-700 mb-3">
           Preferred Gender
         </label>
-        <div className='mt-2 space-y-2'>
-          <div className='flex items-center'>
-            <input 
-              id='prefer-male'
-              name='gender-preference'
-              type='radio'
-              value='male'
-              checked={genderPreference === "male"}
-              onChange={(e) => setGenderPreference(e.target.value)}
-              className='h-4 w-4 text-purple-600 focus:ring-pink-300 border-gray-300 rounded'
-            
-            />
-            <label htmlFor='prefer-male' className='ml-2 block text-sm text-gray-900'>
-              Male
-            </label>
-          </div>
-          <div className='flex items-center'>
-            <input 
-              id='prefer-female'
-              name='gender-preference'
-              type='radio'
-              value='female'
-              checked={genderPreference === "female"}
-              onChange={(e) => setGenderPreference(e.target.value)}
-              className='h-4 w-4 text-purple-600 focus:ring-pink-300 border-gray-300 rounded'
-            />
-            <label htmlFor='prefer-female' className='ml-2 block text-sm text-gray-900'>
-              Female
-            </label>
-          </div>
-          <div className='flex items-center'>
-            <input 
-              id='prefer-both'
-              name='gender-preference'
-              type='radio'
-              value='both'
-              checked={genderPreference === "both"}
-              onChange={(e) => setGenderPreference(e.target.value)}
-              className='h-4 w-4 text-purple-600 focus:ring-pink-300 border-gray-300 rounded'
-            />
-            <label htmlFor='prefer-any' className='ml-2 block text-sm text-gray-900'>
-              Both
-            </label>
-          </div>
+        <div className="space-y-2 max-w-md">
+          <RadioCard
+            id="prefer-male"
+            value="male"
+            checked={genderPreference === "male"}
+            onChange={(e) => setGenderPreference(e.target.value)}
+            label="Male"
+            icon="👨"
+          />
+          <RadioCard
+            id="prefer-female"
+            value="female"
+            checked={genderPreference === "female"}
+            onChange={(e) => setGenderPreference(e.target.value)}
+            label="Female"
+            icon="👩"
+          />
+          <RadioCard
+            id="prefer-both"
+            value="both"
+            checked={genderPreference === "both"}
+            onChange={(e) => setGenderPreference(e.target.value)}
+            label="Both"
+            icon="👥"
+          />
         </div>
       </div>
 
-      {/* INTERESTS SECTION */}
+      {/* INTERESTS SECTION - Updated with card UI */}
       <div>
-        <label className='block text-sm font-medium text-gray-700 mb-2'>
+        <label className='block text-sm font-medium text-gray-700 mb-3'>
           Interests
         </label>
-        
-        {/* Recommended Interests */}
-        <div className='grid grid-cols-2 gap-2 mb-4'>
+        <div className='grid grid-cols-2 gap-3 mb-4'>
           {recommendedInterests.map(interest => (
-            <label key={interest} className='flex items-center space-x-2'>
-              <input
-                type='checkbox'
-                checked={interests.includes(interest)}
-                onChange={() => handleInterestChange(interest)}
-                className='rounded border-gray-300 text-pink-400 focus:ring-pink-300'
-              />
-              <span className='text-sm text-gray-700'>{interest}</span>
-            </label>
+            <InterestCard
+              key={interest}
+              interest={interest}
+              isSelected={interests.includes(interest)}
+              onToggle={() => handleInterestChange(interest)}
+            />
           ))}
         </div>
 
@@ -336,11 +335,12 @@ const SignUpForm = () => {
           </button>
         </div>
 
-        {/* Selected Interests */}
-        {interests.length > 0 && (
-          <div className='mt-2'>
-            <div className='flex flex-wrap gap-2'>
-              {interests.map(interest => (
+        {/* Selected Custom Interests */}
+        {interests.filter(i => !recommendedInterests.includes(i)).length > 0 && (
+          <div className='mt-4 flex flex-wrap gap-2'>
+            {interests
+              .filter(i => !recommendedInterests.includes(i))
+              .map(interest => (
                 <span
                   key={interest}
                   className='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -356,7 +356,6 @@ const SignUpForm = () => {
                   </button>
                 </span>
               ))}
-            </div>
           </div>
         )}
       </div>
@@ -368,13 +367,52 @@ const SignUpForm = () => {
         </label>
         <div className='mt-1'>
           {locationError ? (
-            <div className='text-red-500 text-sm'>{locationError}</div>
+            <div className='flex flex-col gap-2'>
+              <div className='text-red-500 text-sm'>{locationError}</div>
+              <button
+                type='button'
+                onClick={requestLocation}
+                className='inline-flex items-center px-4 py-2 border border-transparent 
+                  text-sm font-medium rounded-md text-white bg-pink-400 
+                  hover:bg-pink-500 focus:outline-none focus:ring-2 
+                  focus:ring-offset-2 focus:ring-pink-300'
+              >
+                <MapPin className='mr-2 h-4 w-4' />
+                Share Location
+              </button>
+            </div>
           ) : location ? (
-            <div className='text-sm text-gray-600'>
-              {locationName || 'Location detected'}
+            <div className='flex items-center justify-between'>
+              <div className='text-sm text-gray-600'>
+                {locationName || 'Location detected'}
+              </div>
+              <button
+                type='button'
+                onClick={requestLocation}
+                className='inline-flex items-center px-3 py-1 border border-transparent 
+                  text-sm font-medium rounded-md text-white bg-pink-400 
+                  hover:bg-pink-500 focus:outline-none focus:ring-2 
+                  focus:ring-offset-2 focus:ring-pink-300'
+              >
+                <MapPin className='mr-2 h-4 w-4' />
+                Update
+              </button>
             </div>
           ) : (
-            <div className='text-sm text-gray-600'>Detecting location...</div>
+            <div className='flex flex-col gap-2'>
+              <div className='text-sm text-gray-600'>Location required</div>
+              <button
+                type='button'
+                onClick={requestLocation}
+                className='inline-flex items-center px-4 py-2 border border-transparent 
+                  text-sm font-medium rounded-md text-white bg-pink-400 
+                  hover:bg-pink-500 focus:outline-none focus:ring-2 
+                  focus:ring-offset-2 focus:ring-pink-300'
+              >
+                <MapPin className='mr-2 h-4 w-4' />
+                Share Location
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -398,4 +436,4 @@ const SignUpForm = () => {
   );
 };
 
-export default SignUpForm
+export default SignUpForm;

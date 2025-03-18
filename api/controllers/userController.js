@@ -58,22 +58,25 @@ export const updateProfile = async (req, res) => {
       }
     }
 
+    // Transform genderPreference to snake_case for database
+    const updateData = {
+      name: otherData.name,
+      age: otherData.age,
+      gender: otherData.gender?.toLowerCase(),
+      gender_preference: genderPreference?.toLowerCase(), // Store as snake_case
+      bio: otherData.bio,
+      interests: otherData.interests,
+      image: updatedData.image,
+      latitude,
+      longitude,
+      location_name: locationName,
+      updated_at: new Date().toISOString()
+    };
+
     // Update user data in Supabase with transformed data
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .update({
-        name: otherData.name,
-        age: otherData.age,
-        gender: otherData.gender?.toLowerCase(),
-        gender_preference: genderPreference.toLowerCase(),
-        bio: otherData.bio,
-        interests: otherData.interests,
-        image: updatedData.image,
-        latitude,
-        longitude,
-        location_name: locationName,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', req.user.id)
       .select()
       .single();
