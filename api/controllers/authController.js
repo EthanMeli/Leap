@@ -1,7 +1,10 @@
 import { supabase } from "../config/supabase.js";
 
 export const signup = async (req, res) => {
-  const { name, email, password, age, gender, genderPreference, interests } = req.body;
+  const { 
+    name, email, password, age, gender, genderPreference, 
+    interests, latitude, longitude, locationName 
+  } = req.body;
   
   try {
     // Validation checks
@@ -9,6 +12,13 @@ export const signup = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "All fields are required"
+      });
+    }
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        success: false,
+        message: "Location is required"
       });
     }
 
@@ -42,6 +52,9 @@ export const signup = async (req, res) => {
           gender: gender.toLowerCase(),
           gender_preference: genderPreference.toLowerCase(),
           interests: interests || [],
+          latitude,
+          longitude,
+          location_name: locationName
         }
       ])
       .select()

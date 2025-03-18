@@ -4,6 +4,9 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useUserStore } from "../store/useUserStore";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import ImageGridItem from '../components/ImageGridItem';
+import { MapPin } from 'lucide-react';
+import toast from "react-hot-toast";
+import { formatLocation } from '../utils/formatLocation';
 
 const useIsTouchDevice = () => {
   const [isTouch, setIsTouch] = useState(false);
@@ -15,39 +18,173 @@ const useIsTouchDevice = () => {
   return isTouch;
 };
 
+
+const RadioCard = ({ id, value, checked, onChange, label, icon }) => (
+  <label 
+    htmlFor={id}
+    className={`
+      relative block w-full p-4 mb-2 cursor-pointer rounded-lg border-2 
+      transition-all duration-200 ease-in-out
+      ${checked 
+        ? 'border-pink-400 bg-pink-50 shadow-md transform -translate-y-1' 
+        : 'border-gray-200 bg-white hover:border-pink-200'
+      }
+    `}
+  >
+    <input
+      type="radio"
+      id={id}
+      name="gender-preference"
+      value={value}
+      checked={checked}
+      onChange={onChange}
+      className="hidden"
+    />
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        {icon && <span className="mr-3">{icon}</span>}
+        <span className={`font-medium ${checked ? 'text-pink-600' : 'text-gray-700'}`}>
+          {label}
+        </span>
+      </div>
+      <div className={`
+        w-5 h-5 border-2 rounded-full flex items-center justify-center
+        ${checked 
+          ? 'border-pink-400 bg-pink-400' 
+          : 'border-gray-300'
+        }
+      `}>
+        {checked && (
+          <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
+        )}
+      </div>
+    </div>
+  </label>
+);
+
 const ProfilePage = () => {
   const { authUser } = useAuthStore();
-  const [name, setName] = useState(authUser.name || "");
-  const [bio, setBio] = useState(authUser.bio || "");
-  const [age, setAge] = useState(authUser.age || "");
-  const [gender, setGender] = useState(authUser.gender || "");
-  const [genderPreference, setGenderPreference] = useState(authUser.genderPreference || []);
-  const [interests, setInterests] = useState(authUser.interests || []);
+  const [name, setName] = useState(authUser?.name || "");
+  const [bio, setBio] = useState(authUser?.bio || "");
+  const [age, setAge] = useState(authUser?.age || "");
+  const [gender, setGender] = useState(authUser?.gender || "");
+  const [genderPreference, setGenderPreference] = useState(
+    authUser?.genderPreference || authUser?.gender_preference || ""
+  );
+  const [interests, setInterests] = useState(authUser?.interests || []);
+  const [location, setLocation] = useState({
+    latitude: authUser?.latitude || null,
+    longitude: authUser?.longitude || null,
+    name: authUser?.location_name || ""
+  });
   const [images, setImages] = useState(() => {
-    // Initialize with exactly 9 slots, using existing images or empty strings
     const initialImages = Array(9).fill("");
-    if (authUser.image) {
+    if (authUser?.image) {
       authUser.image.forEach((img, i) => {
         if (i < 9) initialImages[i] = img;
       });
     }
     return initialImages;
   });
-  const fileInputRefs = useRef(Array(9).fill(null).map(() => createRef())); // Create 9 refs
+
+  // Moved useEffect after state initialization
+  useEffect(() => {
+    if (!authUser) return;
+    
+    setName(authUser.name || "");
+    setBio(authUser.bio || "");
+    setAge(authUser.age || "");
+    setGender(authUser.gender || "");
+    setGenderPreference(authUser.genderPreference || authUser.gender_preference || "");
+    setInterests(authUser.interests || []);
+    
+    setLocation({
+      latitude: authUser.latitude || null,
+      longitude: authUser.longitude || null,
+      name: authUser.location_name || ""
+    });
+
+    const initialImages = Array(9).fill("");
+    if (authUser.image) {
+      authUser.image.forEach((img, i) => {
+        if (i < 9) initialImages[i] = img;
+      });
+    }
+    setImages(initialImages);
+  }, [authUser]);
 
   const {loading, updateProfile} = useUserStore();
+  const fileInputRefs = useRef(Array(9).fill(null).map(() => createRef())); // Create 9 refs
   const isTouch = useIsTouchDevice();
+
+  // Add a loading state check
+  if (!authUser) {
+    return (
+      <div className='min-h-screen bg-gray-50 flex flex-col'>
+        <Header />
+        <div className='flex-grow flex items-center justify-center'>
+          <div className='text-center'>
+            <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-pink-400 mx-auto'></div>
+            <p className='mt-4 text-gray-600'>Loading profile...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const updateLocation = async () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+            );
+            const data = await response.json();
+            const simplifiedLocation = formatLocation(data.display_name);
+            
+            setLocation({
+              latitude,
+              longitude,
+              name: simplifiedLocation
+            });
+          } catch (error) {
+            console.error("Error getting location name:", error);
+            toast.error("Error getting location name");
+          }
+        },
+        (error) => {
+          toast.error("Error getting location. Please enable location services.");
+          console.error("Error getting location:", error);
+        }
+      );
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!genderPreference) {
+      toast.error("Please select a gender preference");
+      return;
+    }
+    // Add a console.log to debug the data being sent
+    console.log("Submitting profile update with:", {
+      genderPreference,
+      // ...other fields
+    });
     updateProfile({
       name, 
       bio, 
       age, 
       gender, 
-      genderPreference, 
+      genderPreference, // Make sure we're using camelCase here
       image: images.filter(img => img !== ""), // Only send non-empty images
-      interests
+      interests,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      locationName: location.name
     });
   }
 
@@ -223,24 +360,35 @@ const ProfilePage = () => {
               </div>
 
               {/* GENDER PREFERENCE */}
-              <div>
-                <span className='block text-sm font-medium text-gray-700'>
-                  Gender Preference
-                </span>
-                <div className='flex space-x-4'>
-                  {["Male", "Female", "Both"].map((option) => (
-                    <label key={option} className='inline-flex items-center'>
-                      <input
-                        type='radio'
-                        className='form-radio text-pink-400'
-                        checked={genderPreference.toLowerCase() === option.toLowerCase()}
-                        onChange={() => setGenderPreference(option.toLowerCase())}
-                      />
-                      <span className='ml-2'>
-                        {option}
-                      </span>
-                    </label>
-                  ))}
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Preferred Gender
+                </label>
+                <div className="space-y-2 max-w-md">
+                  <RadioCard
+                    id="prefer-male"
+                    value="male"
+                    checked={genderPreference === "male"}
+                    onChange={(e) => setGenderPreference(e.target.value)}
+                    label="Male"
+                    icon="👨"
+                  />
+                  <RadioCard
+                    id="prefer-female"
+                    value="female"
+                    checked={genderPreference === "female"}
+                    onChange={(e) => setGenderPreference(e.target.value)}
+                    label="Female"
+                    icon="👩"
+                  />
+                  <RadioCard
+                    id="prefer-both"
+                    value="both"
+                    checked={genderPreference === "both"}
+                    onChange={(e) => setGenderPreference(e.target.value)}
+                    label="Both"
+                    icon="👥"
+                  />
                 </div>
               </div>
 
@@ -311,6 +459,29 @@ const ProfilePage = () => {
                       Add
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* LOCATION */}
+              <div>
+                <label className='block text-sm font-medium text-gray-700'>
+                  Location
+                </label>
+                <div className='mt-1 flex items-center gap-2'>
+                  <span className='text-sm text-gray-600'>
+                    {location.name || "No location set"}
+                  </span>
+                  <button
+                    type='button'
+                    onClick={updateLocation}
+                    className='inline-flex items-center px-3 py-1 border border-transparent 
+                      text-sm leading-4 font-medium rounded-md text-white bg-pink-400 
+                      hover:bg-pink-500 focus:outline-none focus:ring-2 focus:ring-offset-2 
+                      focus:ring-pink-300'
+                  >
+                    <MapPin className='mr-2 h-4 w-4' />
+                    Update Location
+                  </button>
                 </div>
               </div>
 

@@ -1,10 +1,17 @@
 import { supabase } from "../config/supabase.js";
-import User from "../models/User.js";
 
 export const updateProfile = async (req, res) => {
   try {
-    const { image, ...otherData } = req.body;
-    let updatedData = otherData;
+    const { image, latitude, longitude, locationName, genderPreference, ...otherData } = req.body;
+    let updatedData = { ...otherData };
+
+    // Validate gender preference
+    if (!genderPreference) {
+      return res.status(400).json({
+        success: false,
+        message: "Gender preference is required"
+      });
+    }
 
     if (image && Array.isArray(image)) {
       try {
@@ -51,19 +58,25 @@ export const updateProfile = async (req, res) => {
       }
     }
 
+    // Transform genderPreference to snake_case for database
+    const updateData = {
+      name: otherData.name,
+      age: otherData.age,
+      gender: otherData.gender?.toLowerCase(),
+      gender_preference: genderPreference?.toLowerCase(), // Store as snake_case
+      bio: otherData.bio,
+      interests: otherData.interests,
+      image: updatedData.image,
+      latitude,
+      longitude,
+      location_name: locationName,
+      updated_at: new Date().toISOString()
+    };
+
     // Update user data in Supabase with transformed data
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .update({
-        name: otherData.name,
-        age: otherData.age,
-        gender: otherData.gender?.toLowerCase(),
-        gender_preference: otherData.genderPreference?.toLowerCase(),
-        bio: otherData.bio,
-        interests: otherData.interests,
-        image: updatedData.image,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', req.user.id)
       .select()
       .single();

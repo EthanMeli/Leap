@@ -1,4 +1,3 @@
-import User from "../models/User.js";
 import { getConnectedUsers, getIO } from "../socket/socket.server.js";
 import { supabase } from "../config/supabase.js";
 
@@ -6,6 +5,21 @@ export const swipeRight = async (req, res) => {
   try {
     const { likedUserId } = req.params;
     const currentUserId = req.user.id;
+
+    // Check if interaction already exists
+    const { data: existingMatch } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('user_id', currentUserId)
+      .eq('liked_user_id', likedUserId)
+      .single();
+
+    if (existingMatch) {
+      return res.status(200).json({
+        success: true,
+        message: "Already swiped on this user"
+      });
+    }
 
     // Insert like into matches table
     const { data: matchData, error: matchError } = await supabase
@@ -74,23 +88,44 @@ export const swipeRight = async (req, res) => {
 export const swipeLeft = async (req, res) => {
   try {
     const { dislikedUserId } = req.params;
-    const currentUser = await User.findById(req.user.id);
+    const currentUserId = req.user.id;
 
-    if (!currentUser.dislikes.includes(dislikedUserId)) {
-      currentUser.dislikes.push(dislikedUserId);
-      await currentUser.save();
+    // Check if interaction already exists
+    const { data: existingMatch } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('user_id', currentUserId)
+      .eq('liked_user_id', dislikedUserId)
+      .single();
+
+    if (existingMatch) {
+      return res.status(200).json({
+        success: true,
+        message: "Already swiped on this user"
+      });
     }
 
+    // Record the dislike in matches table with is_match=false
+    const { error: matchError } = await supabase
+      .from('matches')
+      .insert([
+        {
+          user_id: currentUserId,
+          liked_user_id: dislikedUserId,
+          is_match: false
+        }
+      ]);
+
+    if (matchError) throw matchError;
+
     res.status(200).json({
-      success: true,
-      user: currentUser,
+      success: true
     });
   } catch (error) {
     console.log("Error in swipeLeft: ", error);
-
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Internal server error"
     });
   }
 };
@@ -136,51 +171,67 @@ export const getMatches = async (req, res) => {
 export const getUserProfiles = async (req, res) => {
   try {
     const { gender, gender_preference } = req.user;
+    console.log('Fetching profiles for user:', { id: req.user.id, gender, gender_preference });
 
-    // First get the IDs of users that have been liked or matched
-    const { data: matches } = await supabase
+    // Base query excluding current user
+    let query = supabase
+      .from('users')
+      .select('*')
+      .neq('id', req.user.id);
+
+    // Get existing matches if any
+    const { data: existingMatches, error: matchError } = await supabase
       .from('matches')
       .select('liked_user_id')
       .eq('user_id', req.user.id);
-    
-    const excludedUserIds = matches?.map(match => match.liked_user_id) || [];
-    
-    // Get users excluding the current user and previously liked/matched users
-    const { data: users, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .neq('id', req.user.id)
-      .not('id', 'in', `(${excludedUserIds.join(',')})`)
-      .order('created_at', { ascending: false });
 
-    if (userError) throw userError;
+    if (matchError) throw matchError;
 
-    // Filter by gender preferences
-    const filteredUsers = users.filter(user => {
-      const matchesUserPreference = gender_preference === 'both' || user.gender === gender_preference;
-      const matchesOtherPreference = user.gender_preference === 'both' || user.gender_preference === gender;
-      return matchesUserPreference && matchesOtherPreference;
-    });
+    // Only add the not-in filter if there are existing matches
+    if (existingMatches && existingMatches.length > 0) {
+      const interactedUserIds = existingMatches.map(match => match.liked_user_id);
+      query = query.not('id', 'in', `(${interactedUserIds.join(',')})`);
+    }
+
+    // Handle gender preferences
+    if (gender_preference === 'both') {
+      // For users who prefer both, just filter by those who might be interested in them
+      query = query.or(`gender_preference.eq.${gender},gender_preference.eq.both`);
+    } else {
+      // For users who prefer a specific gender, filter by that gender AND those who might be interested
+      query = query
+        .eq('gender', gender_preference)
+        .or(`gender_preference.eq.${gender},gender_preference.eq.both`);
+    }
+
+    // Execute query with limit
+    const { data: users, error } = await query.limit(50);
+
+    if (error) {
+      console.log('Supabase query error:', error);
+      throw error;
+    }
 
     // Transform for frontend
-    const transformedUsers = filteredUsers.map(user => ({
+    const transformedUsers = users?.map(user => ({
       _id: user.id,
       name: user.name,
       age: user.age,
       gender: user.gender,
       genderPreference: user.gender_preference,
       bio: user.bio,
-      image: user.image?.[0] || null
-    }));
+      image: user.image || [] // Return full image array instead of just first image
+    })) || [];
 
     res.status(200).json({
       success: true,
       users: transformedUsers
     });
+
   } catch (error) {
-    console.log("Error in getUserProfiles: ", error);
+    console.log("Error in getUserProfiles:", error);
     res.status(500).json({
-      success: false,
+      success: false, 
       message: "Internal server error"
     });
   }
