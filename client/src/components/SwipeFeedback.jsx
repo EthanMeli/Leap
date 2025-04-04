@@ -1,9 +1,9 @@
-import { useMatchStore } from "../store/useMatchStore";
+import { useMatchStore } from "../store/useMatchStore.js"; // Use .js extension, not .jsx
 
 const getFeedbackStyle = (swipeFeedback) => {
 	if (swipeFeedback === "liked") return "text-green-500";
 	if (swipeFeedback === "passed") return "text-red-500";
-	if (swipeFeedback === "matched") return "text-pink-500";
+	if (swipeFeedback === "matched") return "text-pink-500 scale-125 transform transition-transform duration-200";
 	return "";
 };
 
@@ -19,9 +19,7 @@ const SwipeFeedback = () => {
 
 	return (
 		<div
-			className={`
-		absolute top-10 left-0 right-0 text-center text-2xl font-bold ${getFeedbackStyle(swipeFeedback)}
-		`}
+			className={`absolute top-10 left-0 right-0 text-center text-2xl font-bold ${getFeedbackStyle(swipeFeedback)}`}
 		>
 			{getFeedbackText(swipeFeedback)}
 		</div>

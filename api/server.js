@@ -9,6 +9,7 @@ import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import matchRoutes from "./routes/matchRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import dateCardRoutes from "./routes/dateCardRoutes.js";
 
 import { initializeSocket } from "./socket/socket.server.js";
 
@@ -31,6 +32,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/date-cards", dateCardRoutes);
 
 httpServer.listen(PORT, () => {
   console.log("Server started at port: " + PORT);
