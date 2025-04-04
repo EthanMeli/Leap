@@ -18,7 +18,7 @@ export const useMatchStore = create((set, get) => ({
       set({ matches: res.data.matches });
     } catch (error) {
       set({ matches: [] });
-      toast.error(error.response.data.message || "Something went wrong");
+      toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
       set({ isLoadingMyMatches: false });
     }
@@ -32,7 +32,7 @@ export const useMatchStore = create((set, get) => ({
       set({ userProfiles: res.data.users });
     } catch (error) {
       set({ userProfiles: [] });
-      toast.error(error.response.data.message || "Something went wrong");
+      toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
       set({ isLoadingUserProfiles: false });
     }
@@ -74,6 +74,7 @@ export const useMatchStore = create((set, get) => ({
       setTimeout(() => set({ swipeFeedback: null }), 1500);
     }
   },
+  
   swipeRight: async (user) => {
     try {
       set({ swipeFeedback: "liked" });
@@ -102,8 +103,13 @@ export const useMatchStore = create((set, get) => ({
         
         // Show toast notification with more details when there's a date card
         if (newMatch.dateCard) {
-          // Use string instead of JSX
-          toast.success(`New match with ${newMatch.name}! A date has been suggested for you.`, { duration: 5000 });
+          // Use a function syntax instead of JSX directly
+          toast.success(() => (
+            <div>
+              <p className="font-bold">New match with {newMatch.name}!</p>
+              <p className="text-sm">A date has been suggested for you.</p>
+            </div>
+          ), { duration: 5000 });
         } else {
           toast.success(`You matched with ${newMatch.name}!`);
         }

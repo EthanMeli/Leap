@@ -1,16 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Header } from "../components/Header";
 import { useAuthStore } from "../store/useAuthStore";
-import { useMatchStore } from "../store/useMatchStore";
+import { useMatchStore } from "../store/useMatchStore.js"; // Use .js extension, not .jsx
 import { useMessageStore } from "../store/useMessageStore";
 import { Link, useParams } from "react-router-dom";
 import { Loader, UserX } from "lucide-react";
 import MessageInput from "../components/MessageInput";
+import DateCard from "../components/DateCard";
 
 const ChatPage = () => {
-	const { getMyMatches, matches, isLoadingMyMatches } = useMatchStore();
+	const { getMyMatches, matches, isLoadingMyMatches, getDateCardForMatch } = useMatchStore();
 	const { messages, getMessages, subscribeToMessages, unsubscribeFromMessages } = useMessageStore();
 	const { authUser } = useAuthStore();
+	const messagesEndRef = useRef(null);
 
 	const { id } = useParams();
 
@@ -28,6 +30,21 @@ const ChatPage = () => {
 		};
 	}, [getMyMatches, authUser, getMessages, subscribeToMessages, unsubscribeFromMessages, id]);
 
+	// Fetch date card if needed
+	useEffect(() => {
+		if (match && authUser) {
+			// If the match exists but has no date card or matchId, try to fetch one
+			if (!match.dateCard && match.matchId) {
+				getDateCardForMatch(match.matchId);
+			}
+		}
+	}, [match, authUser, getDateCardForMatch]);
+
+	// Scroll to bottom when new messages arrive
+	useEffect(() => {
+		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [messages]);
+
 	if (isLoadingMyMatches) return <LoadingMessagesUI />;
 	if (!match) return <MatchNotFound />;
 
@@ -40,30 +57,37 @@ const ChatPage = () => {
 					<img
 						src={match.image || "/avatar.png"}
 						className='w-12 h-12 object-cover rounded-full mr-3 border-2 border-pink-300'
+						alt={match.name}
 					/>
 					<h2 className='text-xl font-semibold text-gray-800'>{match.name}</h2>
 				</div>
 
 				<div className='flex-grow overflow-y-auto mb-4 bg-white rounded-lg shadow p-4'>
+					{/* Date Card */}
+					{match.dateCard && <DateCard dateCard={match.dateCard} />}
+
 					{messages.length === 0 ? (
 						<p className='text-center text-gray-500 py-8'>Start your conversation with {match.name}</p>
 					) : (
-						messages.map((msg) => (
-							<div
-								key={msg._id}
-								className={`mb-3 ${msg.sender === authUser._id ? "text-right" : "text-left"}`}
-							>
-								<span
-									className={`inline-block p-3 rounded-lg max-w-xs lg:max-w-md ${
-										msg.sender === authUser._id
-											? "bg-pink-500 text-white"
-											: "bg-gray-200 text-gray-800"
-									}`}
+						<div className="space-y-3">
+							{messages.map((msg) => (
+								<div
+									key={msg.id || msg._id}
+									className={`mb-3 ${msg.sender_id === authUser.id || msg.sender === authUser._id ? "text-right" : "text-left"}`}
 								>
-									{msg.content}
-								</span>
-							</div>
-						))
+									<span
+										className={`inline-block p-3 rounded-lg max-w-xs lg:max-w-md ${
+											msg.sender_id === authUser.id || msg.sender === authUser._id
+												? "bg-pink-500 text-white"
+												: "bg-gray-200 text-gray-800"
+										}`}
+									>
+										{msg.content}
+									</span>
+								</div>
+							))}
+							<div ref={messagesEndRef} />
+						</div>
 					)}
 				</div>
 				<MessageInput match={match} />

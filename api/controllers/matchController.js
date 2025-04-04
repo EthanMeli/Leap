@@ -1,5 +1,6 @@
 import { getConnectedUsers, getIO } from "../socket/socket.server.js";
 import { supabase } from "../config/supabase.js";
+import { createDateCardForMatch } from "../services/dateCardService.js";
 
 export const swipeRight = async (req, res) => {
   try {
@@ -52,6 +53,16 @@ export const swipeRight = async (req, res) => {
         supabase.from('matches').update({ is_match: true }).eq('id', otherUserLike.id)
       ]);
 
+      // Create a date card for the match
+      let dateCard = null;
+      try {
+        dateCard = await createDateCardForMatch(matchData.id);
+        console.log("Date card created:", dateCard);
+      } catch (dateCardError) {
+        console.error("Error creating date card:", dateCardError);
+        // Continue with the match even if date card creation fails
+      }
+
       // Get other user's data for notification
       const { data: likedUser } = await supabase
         .from('users')
@@ -62,13 +73,32 @@ export const swipeRight = async (req, res) => {
       // Send notification in real-time with socket.io
       const connectedUsers = getConnectedUsers();
       const io = getIO();
+      
+      // Enhanced notification data with match ID for date card fetching
+      const matchNotification = {
+        _id: req.user.id,
+        name: req.user.name,
+        image: req.user.image?.[0] || null,
+        matchId: matchData.id,
+        dateCard: dateCard || null,
+      };
+      
       const likedUserSocketId = connectedUsers.get(likedUserId);
       if (likedUserSocketId) {
-        io.to(likedUserSocketId).emit("newMatch", {
-          _id: req.user.id,
-          name: req.user.name,
-          image: req.user.image,
-        });
+        io.to(likedUserSocketId).emit("newMatch", matchNotification);
+      }
+      
+      // Also notify the current user about the match
+      const currentUserSocketId = connectedUsers.get(currentUserId);
+      if (currentUserSocketId) {
+        const currentUserNotification = {
+          _id: likedUserId,
+          name: likedUser.name,
+          image: likedUser.image?.[0] || null,
+          matchId: matchData.id,
+          dateCard: dateCard || null,
+        };
+        io.to(currentUserSocketId).emit("newMatch", currentUserNotification);
       }
     }
 
@@ -132,16 +162,18 @@ export const swipeLeft = async (req, res) => {
 
 export const getMatches = async (req, res) => {
   try {
-    // Get all matches for current user
+    // Get all matches for current user with date cards
     const { data: matches, error: matchError } = await supabase
       .from('matches')
       .select(`
+        id,
         liked_user_id,
         liked_users:users!matches_liked_user_id_fkey (
           id,
           name,
           image
-        )
+        ),
+        date_cards(*)
       `)
       .eq('user_id', req.user.id)
       .eq('is_match', true);
@@ -149,11 +181,22 @@ export const getMatches = async (req, res) => {
     if (matchError) throw matchError;
 
     // Transform data for frontend
-    const transformedMatches = matches.map(match => ({
-      _id: match.liked_users.id,
-      name: match.liked_users.name,
-      image: match.liked_users.image?.[0] || null
-    }));
+    const transformedMatches = matches.map(match => {
+      // Format the match data
+      const matchData = {
+        _id: match.liked_users.id,
+        name: match.liked_users.name,
+        image: match.liked_users.image?.[0] || null,
+        matchId: match.id, // Include match ID for date card fetching
+      };
+      
+      // Add date card if exists
+      if (match.date_cards && match.date_cards.length > 0) {
+        matchData.dateCard = match.date_cards[0];
+      }
+      
+      return matchData;
+    });
 
     res.status(200).json({
       success: true,

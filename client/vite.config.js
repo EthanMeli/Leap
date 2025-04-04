@@ -5,7 +5,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      // Allow JSX in .js files
+      include: '**/*.{jsx,js}',
+    }),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -56,6 +59,19 @@ export default defineConfig({
     proxy: {
       "/api": {
         target: "http://localhost:5000",
+      },
+    },
+  },
+  // Add esbuild configuration to handle JSX in .js files
+  esbuild: {
+    loader: 'jsx',
+    include: /src\/.*\.jsx?$/,
+    exclude: [],
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      loader: {
+        '.js': 'jsx',
       },
     },
   },
