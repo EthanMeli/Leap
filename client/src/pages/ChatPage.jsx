@@ -1,18 +1,22 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Header } from "../components/Header";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMatchStore } from "../store/useMatchStore.js"; // Use .js extension, not .jsx
 import { useMessageStore } from "../store/useMessageStore";
-import { Link, useParams } from "react-router-dom";
-import { Loader, UserX } from "lucide-react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { Loader, UserX, AlertCircle } from "lucide-react";
 import MessageInput from "../components/MessageInput";
 import DateCard from "../components/DateCard";
+import { toast } from "react-toastify";
 
 const ChatPage = () => {
-	const { getMyMatches, matches, isLoadingMyMatches, getDateCardForMatch } = useMatchStore();
+	const { getMyMatches, matches, isLoadingMyMatches, getDateCardForMatch, unmatchUser } = useMatchStore();
 	const { messages, getMessages, subscribeToMessages, unsubscribeFromMessages } = useMessageStore();
 	const { authUser } = useAuthStore();
 	const messagesEndRef = useRef(null);
+	const [showConfirmation, setShowConfirmation] = useState(false);
+	const [isUnmatching, setIsUnmatching] = useState(false);
+	const navigate = useNavigate();
 
 	const { id } = useParams();
 
@@ -45,6 +49,31 @@ const ChatPage = () => {
 		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages]);
 
+	const handleUnmatch = async () => {
+		try {
+			setIsUnmatching(true);
+			console.log(`Attempting to unmatch with user: ${id}`);
+			
+			const success = await unmatchUser(id);
+			console.log(`Unmatch result: ${success ? 'success' : 'failed'}`);
+			
+			if (success) {
+				toast.success(`You have unmatched with ${match.name}`);
+				// Navigate after a short delay to give the user a sense of completion
+				setTimeout(() => {
+					console.log('Navigating to home after successful unmatch');
+					navigate('/');
+				}, 1000);
+			}
+		} catch (error) {
+			console.error("Error unmatching user:", error);
+			toast.error("Failed to unmatch. Please try again later.");
+		} finally {
+			setIsUnmatching(false);
+			setShowConfirmation(false);
+		}
+	};
+
 	if (isLoadingMyMatches) return <LoadingMessagesUI />;
 	if (!match) return <MatchNotFound />;
 
@@ -53,14 +82,59 @@ const ChatPage = () => {
 			<Header />
 
 			<div className='flex-grow flex flex-col p-4 md:p-6 lg:p-8 overflow-hidden max-w-4xl mx-auto w-full'>
-				<div className='flex items-center mb-4 bg-white rounded-lg shadow p-3'>
-					<img
-						src={match.image || "/avatar.png"}
-						className='w-12 h-12 object-cover rounded-full mr-3 border-2 border-pink-300'
-						alt={match.name}
-					/>
-					<h2 className='text-xl font-semibold text-gray-800'>{match.name}</h2>
+				<div className='flex items-center justify-between mb-4 bg-white rounded-lg shadow p-3'>
+					<div className="flex items-center">
+						<img
+							src={match.image || "/avatar.png"}
+							className='w-12 h-12 object-cover rounded-full mr-3 border-2 border-pink-300'
+							alt={match.name}
+						/>
+						<h2 className='text-xl font-semibold text-gray-800'>{match.name}</h2>
+					</div>
+					<button 
+						onClick={() => setShowConfirmation(true)}
+						disabled={isUnmatching}
+						className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm transition-colors hover:cursor-pointer"
+					>
+						Unmatch
+					</button>
 				</div>
+
+				{/* Confirmation Dialog */}
+				{showConfirmation && (
+					<div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+						<div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
+							<div className="flex items-center mb-4 text-red-500">
+								<AlertCircle className="mr-2" size={24} />
+								<h3 className="text-lg font-semibold">Confirm Unmatch</h3>
+							</div>
+							<p className="mb-6 text-gray-700">
+								Are you sure you want to unmatch with {match.name}? This will permanently remove your conversation and you won&apos;t be able to contact each other again.
+							</p>
+							<div className="flex justify-end space-x-3">
+								<button 
+									onClick={() => setShowConfirmation(false)} 
+									disabled={isUnmatching}
+									className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 hover:cursor-pointer"
+								>
+									Cancel
+								</button>
+								<button 
+									onClick={handleUnmatch} 
+									disabled={isUnmatching}
+									className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center hover:cursor-pointer"
+								>
+									{isUnmatching ? (
+										<>
+											<Loader size={16} className="animate-spin mr-2" />
+											Unmatching...
+										</>
+									) : "Unmatch"}
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
 
 				<div className='flex-grow overflow-y-auto mb-4 bg-white rounded-lg shadow p-4'>
 					{/* Date Card */}
