@@ -9,7 +9,6 @@ import { useAuthStore } from "../store/useAuthStore";
 
 const HomePage = () => {
   const {isLoadingProfiles, getUserProfiles, userProfiles, subscribeToNewMatches, unsubscribeFromNewMatches} = useMatchStore();
-
   const {authUser} = useAuthStore();
 
   useEffect(() => {
@@ -25,24 +24,29 @@ const HomePage = () => {
   }, [subscribeToNewMatches, unsubscribeFromNewMatches, authUser]);
 
   return (
-    <div className='flex flex-col lg:flex-row min-h-screen bg-gradient-to-br from-orange-200 to-pink-300
-    overflow-hidden'>
+    <div className='flex flex-col lg:flex-row h-screen bg-gradient-to-br from-orange-200 to-pink-300 overflow-hidden'>
+      {/* Sidebar - fixed height with internal scrolling */}
       <Sidebar />
-      <div className='flex-grow flex flex-col overflow-hidden'>
+      
+      {/* Main content area - takes remaining space */}
+      <div className='flex-grow flex flex-col h-full overflow-hidden'>
         <Header />
-        <main className='flex-grow flex flex-col gap-10 justify-center items-center p-4 relative overflow-hidden'>
-          {userProfiles.length > 0 && !isLoadingProfiles && (
-            <>
-              <SwipeArea />
-              <SwipeFeedback />
-            </>
-          )}
+        {/* Content area with absolute centering */}
+        <main className='flex-grow relative items-center justify-center'>
+          <div className="absolute inset-0 flex items-center justify-center">
+            {userProfiles.length > 0 && !isLoadingProfiles && (
+              <div className="relative">
+                <SwipeArea />
+                <SwipeFeedback />
+              </div>
+            )}
 
-          {userProfiles.length === 0 && !isLoadingProfiles && (
-            <NoMoreProfiles />
-          )}
+            {userProfiles.length === 0 && !isLoadingProfiles && (
+              <NoMoreProfiles />
+            )}
 
-          {isLoadingProfiles && <LoadingUI />}
+            {isLoadingProfiles && <LoadingUI />}
+          </div>
         </main>
       </div>
     </div>
