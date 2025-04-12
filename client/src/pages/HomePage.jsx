@@ -29,16 +29,15 @@ const HomePage = () => {
       <Sidebar />
       
       {/* Main content area - takes remaining space */}
-      <div className='flex-grow flex flex-col h-full overflow-hidden'>
+      <div className='flex-grow flex flex-col overflow-hidden'>
         <Header />
         {/* Content area with absolute centering */}
-        <main className='flex-grow relative items-center justify-center'>
-          <div className="absolute inset-0 flex items-center justify-center">
+        <main className='flex-grow flex flex-col gap-10 justify-center items-center p-4 relative overflow-hidden'>
             {userProfiles.length > 0 && !isLoadingProfiles && (
-              <div className="relative">
+              <>
                 <SwipeArea />
                 <SwipeFeedback />
-              </div>
+              </>
             )}
 
             {userProfiles.length === 0 && !isLoadingProfiles && (
@@ -46,7 +45,6 @@ const HomePage = () => {
             )}
 
             {isLoadingProfiles && <LoadingUI />}
-          </div>
         </main>
       </div>
     </div>
