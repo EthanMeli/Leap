@@ -9,6 +9,13 @@ export const useMatchStore = create((set, get) => ({
   isLoadingUserProfiles: false,
   userProfiles: [],
   swipeFeedback: null,
+  noMoreProfiles: false,
+  searchingForProfiles: false, // New state to track when "searching" for more profiles
+
+  setNoMoreProfiles: (value) => set({ noMoreProfiles: value }),
+  
+  // New function to simulate searching for more profiles
+  setSearchingForProfiles: (value) => set({ searchingForProfiles: value }),
 
   getMyMatches: async () => {
     try {
@@ -26,13 +33,24 @@ export const useMatchStore = create((set, get) => ({
 
   getUserProfiles: async () => {
     try {
-      set({ isLoadingUserProfiles: true });
+      set({ 
+        isLoadingUserProfiles: true, 
+        noMoreProfiles: false,
+        searchingForProfiles: false
+      }); // Reset all related flags when loading profiles
+      
       const res = await axiosInstance.get("/matches/user-profiles");
       console.log("Fetched user profiles:", res.data.users);
+      
+      // If no profiles returned, set noMoreProfiles flag
+      if (res.data.users.length === 0) {
+        set({ noMoreProfiles: true });
+      }
+      
       set({ userProfiles: res.data.users });
     } catch (error) {
-      set({ userProfiles: [] });
-      toast.error(error.response.data.message || "Something went wrong");
+      set({ userProfiles: [], noMoreProfiles: true }); // Set flag on error too
+      toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
       set({ isLoadingUserProfiles: false });
     }
@@ -71,9 +89,12 @@ export const useMatchStore = create((set, get) => ({
       console.log(error);
       toast.error("Failed to swipe left");
     } finally {
+      // Don't clear feedback immediately if this was the last profile
+      // Let the SwipeArea component handle the timing
       setTimeout(() => set({ swipeFeedback: null }), 1500);
     }
   },
+  
   swipeRight: async (user) => {
     try {
       set({ swipeFeedback: "liked" });
@@ -82,6 +103,8 @@ export const useMatchStore = create((set, get) => ({
       console.log(error);
       toast.error("Failed to swipe right");
     } finally {
+      // Don't clear feedback immediately if this was the last profile
+      // Let the SwipeArea component handle the timing
       setTimeout(() => set({ swipeFeedback: null }), 1500);
     }
   },

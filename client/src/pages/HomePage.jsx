@@ -2,13 +2,21 @@ import { useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import { useMatchStore } from "../store/useMatchStore";
-import { Frown } from "lucide-react";
+import { Frown, Loader } from "lucide-react";
 import SwipeArea from "../components/SwipeArea";
 import SwipeFeedback from "../components/SwipeFeedback";
 import { useAuthStore } from "../store/useAuthStore";
 
 const HomePage = () => {
-  const {isLoadingProfiles, getUserProfiles, userProfiles, subscribeToNewMatches, unsubscribeFromNewMatches} = useMatchStore();
+  const {
+    isLoadingProfiles, 
+    getUserProfiles, 
+    userProfiles, 
+    noMoreProfiles,
+    searchingForProfiles,
+    subscribeToNewMatches, 
+    unsubscribeFromNewMatches
+  } = useMatchStore();
   const {authUser} = useAuthStore();
 
   useEffect(() => {
@@ -33,14 +41,18 @@ const HomePage = () => {
         <Header />
         {/* Content area with absolute centering */}
         <main className='flex-grow flex flex-col gap-10 justify-center items-center p-4 relative overflow-hidden'>
-            {userProfiles.length > 0 && !isLoadingProfiles && (
+            {userProfiles.length > 0 && !isLoadingProfiles && !noMoreProfiles && !searchingForProfiles && (
               <>
                 <SwipeArea />
                 <SwipeFeedback />
               </>
             )}
 
-            {userProfiles.length === 0 && !isLoadingProfiles && (
+            {searchingForProfiles && !isLoadingProfiles && (
+              <SearchingForProfiles />
+            )}
+
+            {noMoreProfiles && !isLoadingProfiles && !searchingForProfiles && (
               <NoMoreProfiles />
             )}
 
@@ -52,6 +64,22 @@ const HomePage = () => {
 }
 
 export default HomePage;
+
+// Add a new component for the "searching for profiles" state
+const SearchingForProfiles = () => {
+  return (
+    <div className='flex flex-col items-center justify-center h-full text-center p-8'>
+      <div className='relative mb-6'>
+        <Loader className='text-white animate-spin' size={80} />
+        <div className='absolute inset-0 flex items-center justify-center'>
+          <div className='h-16 w-16 bg-gradient-to-r from-orange-300 to-pink-300 rounded-full opacity-30 animate-pulse'></div>
+        </div>
+      </div>
+      <h2 className='text-3xl font-bold text-gray-800 mb-4'>Searching for new profiles...</h2>
+      <p className='text-xl text-gray-600 mb-6'>Looking for your perfect match!</p>
+    </div>
+  )
+};
 
 const NoMoreProfiles = () => {
   return (
@@ -79,4 +107,4 @@ const LoadingUI = () => {
       </div>
     </div>
   )
-}
+};
