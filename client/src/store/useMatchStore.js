@@ -86,6 +86,34 @@ export const useMatchStore = create((set, get) => ({
     }
   },
 
+  unmatchUser: async (userId) => {
+    try {
+      console.log(`Attempting to unmatch user with ID: ${userId}`);
+      
+      const response = await axiosInstance.delete(`/matches/unmatch/${userId}`);
+      console.log('Unmatch response:', response.data);
+      
+      if (response.data.success) {
+        // Update local state to remove this match
+        set((state) => {
+          console.log(`Removing user ${userId} from matches`, state.matches);
+          const updatedMatches = state.matches.filter((match) => match._id !== userId);
+          console.log('Updated matches:', updatedMatches);
+          return { matches: updatedMatches };
+        });
+        
+        toast.success("User has been unmatched");
+        return true;
+      } else {
+        throw new Error(response.data.message || "Failed to unmatch user");
+      }
+    } catch (error) {
+      console.error("Failed to unmatch user:", error);
+      toast.error(error.response?.data?.message || "Failed to unmatch user");
+      return false;
+    }
+  },
+
   subscribeToNewMatches: () => {
     try {
       const socket = getSocket();

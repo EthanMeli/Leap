@@ -279,3 +279,102 @@ export const getUserProfiles = async (req, res) => {
     });
   }
 };
+
+export const unmatchUser = async (req, res) => {
+  try {
+    const { matchedUserId } = req.params;
+    const currentUserId = req.user.id;
+    
+    console.log(`Attempting to unmatch: User ${currentUserId} from User ${matchedUserId}`);
+    
+    // First, find the match IDs to delete
+    const { data: matchesToDelete, error: findError } = await supabase
+      .from('matches')
+      .select('id')
+      .or(`user_id.eq.${currentUserId},user_id.eq.${matchedUserId}`)
+      .or(`liked_user_id.eq.${currentUserId},liked_user_id.eq.${matchedUserId}`)
+      .eq('is_match', true);
+    
+    if (findError) {
+      console.error('Error finding matches to delete:', findError);
+      throw findError;
+    }
+    
+    console.log(`Found ${matchesToDelete?.length || 0} matches to delete`, matchesToDelete);
+    
+    if (matchesToDelete && matchesToDelete.length > 0) {
+      // Extract match IDs
+      const matchIds = matchesToDelete.map(match => match.id);
+      
+      // Delete date cards associated with these matches first
+      const { error: dateCardError } = await supabase
+        .from('date_cards')
+        .delete()
+        .in('match_id', matchIds);
+      
+      if (dateCardError) {
+        console.error('Error deleting date cards:', dateCardError);
+        // Continue anyway as this is secondary
+      }
+      
+      // Delete the match records by IDs one by one to better diagnose issues
+      for (const matchId of matchIds) {
+        const { error: deleteMatchError } = await supabase
+          .from('matches')
+          .delete()
+          .eq('id', matchId);
+        
+        if (deleteMatchError) {
+          console.error(`Error deleting match ${matchId}:`, deleteMatchError);
+          throw deleteMatchError;
+        }
+        console.log(`Successfully deleted match ID: ${matchId}`);
+      }
+      
+      console.log(`Successfully deleted ${matchIds.length} matches`);
+      
+      // Also delete any messages between these users
+      try {
+        const { error: messageError } = await supabase
+          .from('messages')
+          .delete()
+          .or(`and(sender_id.eq.${currentUserId},receiver_id.eq.${matchedUserId}),and(sender_id.eq.${matchedUserId},receiver_id.eq.${currentUserId})`);
+        
+        if (messageError) {
+          console.error('Error deleting messages:', messageError);
+        } else {
+          console.log('Successfully deleted associated messages');
+        }
+      } catch (msgError) {
+        console.error('Error attempting to delete messages:', msgError);
+        // Continue as this is secondary
+      }
+    } else {
+      console.log('No matches found to delete - trying direct deletion');
+      
+      // Try direct deletion as fallback
+      const { error: directDeleteError } = await supabase
+        .from('matches')
+        .delete()
+        .or(`and(user_id.eq.${currentUserId},liked_user_id.eq.${matchedUserId}),and(user_id.eq.${matchedUserId},liked_user_id.eq.${currentUserId})`);
+      
+      if (directDeleteError) {
+        console.error('Error with direct match deletion:', directDeleteError);
+        throw directDeleteError;
+      }
+      
+      console.log('Direct deletion completed without errors');
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: "Successfully unmatched"
+    });
+  } catch (error) {
+    console.log("Error in unmatchUser: ", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
